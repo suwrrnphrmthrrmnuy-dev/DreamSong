@@ -1,4 +1,3 @@
-cat > app/src/main/java/com/dreamsong/app/MainActivity.kt <<'EOF'
 package com.dreamsong.app
 
 import android.app.Activity
@@ -67,7 +66,7 @@ class MainActivity : Activity() {
             setHintTextColor(gray)
             setTextColor(white)
             textSize = 14f
-            singleLine = true
+            setSingleLine(true)
             setPadding(dp(16), 0, dp(16), 0)
             background = rounded(panel, 16)
         }
@@ -223,4 +222,3 @@ class MainActivity : Activity() {
         return (value * resources.displayMetrics.density).toInt()
     }
 }
-EOF
