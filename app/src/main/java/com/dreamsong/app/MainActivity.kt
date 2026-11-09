@@ -295,7 +295,6 @@ private fun searchSongs(query: String) {
                 }
             }
 
-            connection.disconnect()
 
         } catch (e: Exception) {
             handler.post {
