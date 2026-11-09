@@ -8,9 +8,21 @@ import android.graphics.drawable.GradientDrawable
 import android.view.Gravity
 import android.view.View
 import android.widget.*
+import android.os.Handler
+import android.os.Looper
+import android.text.Editable
+import android.text.TextWatcher
+import org.json.JSONObject
+import java.net.URL
+import java.net.URLEncoder
+import java.util.concurrent.Executors
 
 class MainActivity : Activity() {
 
+    private val executor = Executors.newSingleThreadExecutor()
+    private val handler = Handler(Looper.getMainLooper())
+    private var searchTask = 0
+    private lateinit var resultsContainer: LinearLayout
     private val bg = Color.rgb(13, 15, 22)
     private val panel = Color.rgb(25, 29, 40)
     private val blue = Color.rgb(65, 135, 255)
@@ -71,6 +83,27 @@ class MainActivity : Activity() {
             background = rounded(panel, 16)
         }
         content.addView(search, LinearLayout.LayoutParams(-1, dp(52)))
+search.addTextChangedListener(object : TextWatcher {
+    override fun beforeTextChanged(
+        s: CharSequence?, start: Int, count: Int, after: Int
+    ) {}
+
+    override fun onTextChanged(
+        s: CharSequence?, start: Int, before: Int, count: Int
+    ) {}
+
+
+  override fun afterTextChanged(s: Editable?) {
+        val query = s?.toString()?.trim().orEmpty()
+        if (query.length >= 2) {
+            searchSongs(query)
+        }
+    }
+})
+resultsContainer = LinearLayout(this).apply {
+    orientation = LinearLayout.VERTICAL
+}
+content.addView(resultsContainer)
 
         content.addView(space(28))
         content.addView(label("แนะนำสำหรับคุณ", 20, white, true))
@@ -190,6 +223,93 @@ class MainActivity : Activity() {
         root.addView(bottom)
         setContentView(root)
     }
+
+private fun searchSongs(query: String) {
+    val task = ++searchTask
+
+    if (query.isBlank()) {
+        resultsContainer.removeAllViews()
+        return
+    }
+
+    executor.execute {
+        try {
+            val encoded = URLEncoder.encode(query, "UTF-8")
+            val url = URL("https://itunes.apple.com/search?term=$encoded&entity=song&limit=20")
+
+            val connection = url.openConnection()
+            connection.connectTimeout = 10000
+            connection.readTimeout = 10000
+
+            val json = JSONObject(
+                connection.getInputStream().bufferedReader().use { it.readText() }
+            )
+
+            val results = json.getJSONArray("results")
+            val songList = mutableListOf<Pair<String, String>>()
+
+            for (i in 0 until results.length()) {
+                val item = results.getJSONObject(i)
+                songList.add(
+                    Pair(
+                        item.optString("trackName"),
+                        item.optString("artistName")
+                    )
+                )
+            }
+
+            handler.post {
+                if (task == searchTask) {
+                    resultsContainer.removeAllViews()
+
+                    if (songList.isEmpty()) {
+                        resultsContainer.addView(label("ไม่พบเพลงที่ค้นหา", 14, gray))
+                    }
+
+                    songList.forEachIndexed { index, song ->
+                        val row = LinearLayout(this).apply {
+                            orientation = LinearLayout.HORIZONTAL
+                            gravity = Gravity.CENTER_VERTICAL
+                            setPadding(dp(12), dp(12), dp(12), dp(12))
+                            background = rounded(panel, 12)
+                        }
+
+                        row.addView(
+                            label("${index + 1}", 16, blue, true),
+                            LinearLayout.LayoutParams(dp(30), -2)
+                        )
+
+                        val info = LinearLayout(this).apply {
+                            orientation = LinearLayout.VERTICAL
+                        }
+
+                        info.addView(label(song.first, 14, white, true))
+                        info.addView(label(song.second, 12, gray))
+
+                        row.addView(info, LinearLayout.LayoutParams(0, -2, 1f))
+
+                        val params = LinearLayout.LayoutParams(-1, -2)
+                        params.bottomMargin = dp(8)
+                        resultsContainer.addView(row, params)
+                    }
+                }
+            }
+
+            connection.disconnect()
+
+        } catch (e: Exception) {
+            handler.post {
+                if (task == searchTask) {
+                    Toast.makeText(
+                        this,
+                        "ค้นหาไม่สำเร็จ: ${e.message}",
+                        Toast.LENGTH_LONG
+                    ).show()
+                }
+            }
+        }
+    }
+}
 
     private fun label(
         text: String,
