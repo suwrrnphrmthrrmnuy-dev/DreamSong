@@ -205,9 +205,9 @@ content.addView(resultsContainer)
                 orientation = LinearLayout.VERTICAL
                 setPadding(dp(13), 0, 0, 0)
             }
-            info.addView(label(song.title, 15, white, true))
+            info.addView(label(song.first, 15, white, true))
             info.addView(space(4))
-            info.addView(label(song.artist, 12, gray))
+            info.addView(label(song.second, 12, gray))
 
             row.addView(info, LinearLayout.LayoutParams(0, -2, 1f))
 
