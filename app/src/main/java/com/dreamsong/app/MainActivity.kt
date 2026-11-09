@@ -16,6 +16,9 @@ import org.json.JSONObject
 import java.net.URL
 import java.net.URLEncoder
 import java.util.concurrent.Executors
+import androidx.media3.common.MediaItem
+import androidx.media3.common.Player
+import androidx.media3.exoplayer.ExoPlayer
 
 class MainActivity : Activity() {
 
@@ -23,6 +26,15 @@ class MainActivity : Activity() {
     private val handler = Handler(Looper.getMainLooper())
     private var searchTask = 0
     private lateinit var resultsContainer: LinearLayout
+    private lateinit var player: ExoPlayer
+    private lateinit var miniPlayer: LinearLayout
+    private lateinit var nowPlayingText: TextView
+    private lateinit var playPauseButton: TextView
+    private data class Song(
+    val title: String,
+    val artist: String,
+    val previewUrl: String
+)
     private val bg = Color.rgb(13, 15, 22)
     private val panel = Color.rgb(25, 29, 40)
     private val blue = Color.rgb(65, 135, 255)
@@ -31,6 +43,7 @@ class MainActivity : Activity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        player = ExoPlayer.Builder(this).build()
 
         window.statusBarColor = bg
         window.navigationBarColor = bg
@@ -192,12 +205,11 @@ content.addView(resultsContainer)
                 orientation = LinearLayout.VERTICAL
                 setPadding(dp(13), 0, 0, 0)
             }
-            info.addView(label(song.first, 15, white, true))
+            info.addView(label(song.title, 15, white, true))
             info.addView(space(4))
-            info.addView(label(song.second, 12, gray))
+            info.addView(label(song.artist, 12, gray))
 
             row.addView(info, LinearLayout.LayoutParams(0, -2, 1f))
-            row.addView(label(song.third, 12, gray))
 
             content.addView(row)
         }
@@ -220,7 +232,40 @@ content.addView(resultsContainer)
             bottom.addView(item, LinearLayout.LayoutParams(0, dp(55), 1f))
         }
 
-        root.addView(bottom)
+miniPlayer = LinearLayout(this).apply {
+    orientation = LinearLayout.HORIZONTAL
+    gravity = Gravity.CENTER_VERTICAL
+    setPadding(dp(16), dp(10), dp(16), dp(10))
+    background = rounded(panel, 16)
+}
+
+nowPlayingText = label("ยังไม่ได้เลือกเพลง", 13, white, true)
+
+miniPlayer.addView(
+    nowPlayingText,
+    LinearLayout.LayoutParams(0, dp(44), 1f)
+)
+
+playPauseButton = label("▶", 22, blue, true).apply {
+    gravity = Gravity.CENTER
+    setOnClickListener {
+        if (player.isPlaying) {
+            player.pause()
+            text = "▶"
+        } else {
+            player.play()
+            text = "Ⅱ"
+        }
+    }
+}
+
+miniPlayer.addView(
+    playPauseButton,
+    LinearLayout.LayoutParams(dp(48), dp(44))
+)
+
+root.addView(miniPlayer)
+root.addView(bottom)
         setContentView(root)
     }
 
@@ -246,18 +291,18 @@ private fun searchSongs(query: String) {
             )
 
             val results = json.getJSONArray("results")
-            val songList = mutableListOf<Pair<String, String>>()
+            val songList = mutableListOf<Song>()
 
             for (i in 0 until results.length()) {
                 val item = results.getJSONObject(i)
                 songList.add(
-                    Pair(
-                        item.optString("trackName"),
-                        item.optString("artistName")
-                    )
-                )
-            }
-
+    Song(
+        item.optString("trackName"),
+        item.optString("artistName"),
+        item.optString("previewUrl")
+    )
+)
+}
             handler.post {
                 if (task == searchTask) {
                     resultsContainer.removeAllViews()
@@ -283,10 +328,22 @@ private fun searchSongs(query: String) {
                             orientation = LinearLayout.VERTICAL
                         }
 
-                        info.addView(label(song.first, 14, white, true))
-                        info.addView(label(song.second, 12, gray))
+                        info.addView(label(song.title, 14, white, true))
+                        info.addView(label(song.artist, 12, gray))
 
                         row.addView(info, LinearLayout.LayoutParams(0, -2, 1f))
+
+                        row.setOnClickListener {
+                            if (song.previewUrl.isBlank()) {
+                                Toast.makeText(this, "เพลงนี้ไม่มีเสียง Preview", Toast.LENGTH_SHORT).show()
+                            } else {
+                                player.setMediaItem(MediaItem.fromUri(song.previewUrl))
+                                player.prepare()
+                                player.play()
+                                nowPlayingText.text = "${song.title} — ${song.artist}"
+                                playPauseButton.text = "Ⅱ"
+                            }
+                        }
 
                         val params = LinearLayout.LayoutParams(-1, -2)
                         params.bottomMargin = dp(8)
