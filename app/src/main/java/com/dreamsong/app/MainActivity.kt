@@ -228,6 +228,17 @@ content.addView(resultsContainer)
         listOf("⌂\nหน้าหลัก", "⌕\nค้นหา", "♫\nคลังเพลง", "☻\nโปรไฟล์").forEachIndexed { index, name ->
             val item = label(name, 12, if (index == 0) blue else gray, index == 0).apply {
                 gravity = Gravity.CENTER
+                setOnClickListener {
+                    when (index) {
+                        0 -> scroll.smoothScrollTo(0, 0)
+                        1 -> {
+                            scroll.smoothScrollTo(0, 0)
+                            search.requestFocus()
+                        }
+                        2 -> Toast.makeText(this@MainActivity, "กำลังเตรียมคลังเพลง", Toast.LENGTH_SHORT).show()
+                        3 -> Toast.makeText(this@MainActivity, "กำลังเตรียมหน้าโปรไฟล์", Toast.LENGTH_SHORT).show()
+                    }
+                }
             }
             bottom.addView(item, LinearLayout.LayoutParams(0, dp(55), 1f))
         }
