@@ -1,6 +1,7 @@
 package com.dreamsong.app
 
 import android.app.Activity
+import android.content.Intent
 import android.os.Bundle
 import android.graphics.Color
 import android.graphics.Typeface
@@ -33,7 +34,7 @@ class MainActivity : Activity() {
     private data class Song(
     val title: String,
     val artist: String,
-    val previewUrl: String
+    val audioUrl: String
 )
     private val bg = Color.rgb(13, 15, 22)
     private val panel = Color.rgb(25, 29, 40)
@@ -235,7 +236,13 @@ content.addView(resultsContainer)
                             scroll.smoothScrollTo(0, 0)
                             search.requestFocus()
                         }
-                        2 -> Toast.makeText(this@MainActivity, "กำลังเตรียมคลังเพลง", Toast.LENGTH_SHORT).show()
+                        2 -> {
+                            val intent = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
+                                addCategory(Intent.CATEGORY_OPENABLE)
+                                type = "audio/*"
+                            }
+                            startActivityForResult(intent, 1001)
+                        }
                         3 -> Toast.makeText(this@MainActivity, "กำลังเตรียมหน้าโปรไฟล์", Toast.LENGTH_SHORT).show()
                     }
                 }
@@ -291,7 +298,7 @@ private fun searchSongs(query: String) {
     executor.execute {
         try {
             val encoded = URLEncoder.encode(query, "UTF-8")
-            val url = URL("https://itunes.apple.com/search?term=$encoded&entity=song&limit=20")
+            val url = URL("https://api.jamendo.com/v3.0/tracks/?client_id=0b1edaa5&format=json&search=$encoded&limit=20&audioformat=mp31&type=single+albumtrack")
 
             val connection = url.openConnection()
             connection.connectTimeout = 10000
@@ -308,9 +315,9 @@ private fun searchSongs(query: String) {
                 val item = results.getJSONObject(i)
                 songList.add(
     Song(
-        item.optString("trackName"),
-        item.optString("artistName"),
-        item.optString("previewUrl")
+        item.optString("name"),
+        item.optString("artist_name"),
+        item.optString("audio")
     )
 )
 }
@@ -345,10 +352,10 @@ private fun searchSongs(query: String) {
                         row.addView(info, LinearLayout.LayoutParams(0, -2, 1f))
 
                         row.setOnClickListener {
-                            if (song.previewUrl.isBlank()) {
-                                Toast.makeText(this, "เพลงนี้ไม่มีเสียง Preview", Toast.LENGTH_SHORT).show()
+                            if (song.audioUrl.isBlank()) {
+                                Toast.makeText(this, "เพลงนี้ไม่มีลิงก์สตรีม", Toast.LENGTH_SHORT).show()
                             } else {
-                                player.setMediaItem(MediaItem.fromUri(song.previewUrl))
+                                player.setMediaItem(MediaItem.fromUri(song.audioUrl))
                                 player.prepare()
                                 player.play()
                                 nowPlayingText.text = "${song.title} — ${song.artist}"
@@ -377,6 +384,23 @@ private fun searchSongs(query: String) {
         }
     }
 }
+
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+
+        if (requestCode == 1001 && resultCode == RESULT_OK) {
+            val uri = data?.data ?: return
+            val songName = uri.lastPathSegment?.substringAfterLast('/') ?: "เพลงจากมือถือ"
+
+            player.setMediaItem(MediaItem.fromUri(uri))
+            player.prepare()
+            player.play()
+
+            nowPlayingText.text = songName
+            playPauseButton.text = "Ⅱ"
+            Toast.makeText(this, "กำลังเล่นเพลงจากมือถือ", Toast.LENGTH_SHORT).show()
+        }
+    }
 
     private fun label(
         text: String,
